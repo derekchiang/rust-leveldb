@@ -23,7 +23,7 @@ fn test_db_open() {
             db.close();
         },
         Err(err) => {
-            println(err);
+            fail!(err);
         },
     }
 }
