@@ -106,6 +106,14 @@ fn to_c_read_options(options: &[ReadOption]) -> *leveldb_readoptions_t {
     }
 }
 
+fn to_c_str(s: &[u8]) -> (*c_char, size_t) {
+    unsafe {
+        let c_str = s.to_c_str();
+        let len = c_str.len();
+        (c_str.unwrap(), len as size_t)
+    }
+} 
+
 impl DB {
     /// Open a database connection
     pub fn open(name: &str, options: &[OpenOption]) -> Result<~DB, error> {
@@ -134,13 +142,11 @@ impl DB {
     pub fn put(&self, key: &[u8], value: &[u8], options: &[WriteOption]) -> Result<(), error> {
         unsafe {
             let mut c_err: *mut c_char = mut_null();
-            let c_key = key.to_c_str();
-            let c_key_len = c_key.len();
-            let c_value = value.to_c_str();
-            let c_value_len = c_value.len();
+            let (c_key, c_key_len) = to_c_str(key);
+            let (c_val, c_val_len) = to_c_str(value);
             leveldb_put(self.db, to_c_write_options(options),
-                c_key.unwrap(), c_key_len as size_t,
-                c_value.unwrap(), c_value_len as size_t,
+                c_key, c_key_len,
+                c_val, c_val_len,
                 to_mut_unsafe_ptr(&mut c_err));
             if is_not_null(c_err) {
                 return Err(from_c_str(c_err as *c_char));
@@ -153,11 +159,10 @@ impl DB {
     pub fn get(&self, key: &[u8], options: &[ReadOption]) -> Result<~[u8], error> {
         unsafe {
             let mut c_err: *mut c_char = mut_null();
-            let c_key = key.to_c_str();
-            let c_key_len = c_key.len();
+            let (c_key, c_key_len) = to_c_str(key);
             let mut c_value_len: size_t = 0;
             let c_value = leveldb_get(self.db, to_c_read_options(options),
-                c_key.unwrap(), c_key_len as size_t,
+                c_key, c_key_len,
                 to_mut_unsafe_ptr(&mut c_value_len),
                 to_mut_unsafe_ptr(&mut c_err));
             if is_not_null(c_err) {
@@ -171,10 +176,9 @@ impl DB {
     pub fn delete(&self, key: &[u8], options: &[WriteOption]) -> Result<(), error> {
         unsafe {
             let mut c_err: *mut c_char = mut_null();
-            let c_key = key.to_c_str();
-            let c_key_len = c_key.len();
+            let (c_key, c_key_len) = to_c_str(key);
             leveldb_delete(self.db, to_c_write_options(options),
-                c_key.unwrap(), c_key_len as size_t,
+                c_key, c_key_len,
                 to_mut_unsafe_ptr(&mut c_err));
             if is_not_null(c_err) {
                 return Err(from_c_str(c_err as *c_char));
@@ -188,13 +192,11 @@ impl DB {
         unsafe {
             let c_write_batch = leveldb_writebatch_create();
             for &(key, value) in write_batch.iter() {
-                let c_key = key.to_c_str();
-                let c_key_len = c_key.len();
-                let c_value = value.to_c_str();
-                let c_value_len = c_value.len();
+                let (c_key, c_key_len) = to_c_str(key);
+                let (c_val, c_val_len) = to_c_str(value);
                 leveldb_writebatch_put(c_write_batch,
-                    c_key.unwrap(), c_key_len as size_t,
-                    c_value.unwrap(), c_value_len as size_t);
+                    c_key, c_key_len,
+                    c_val, c_val_len);
             }
             let mut c_err: *mut c_char = mut_null();
             leveldb_write(self.db, to_c_write_options(options),
@@ -222,6 +224,14 @@ pub struct DBIterator {
     iter: *mut leveldb_iterator_t
 }
 
+// TODO: this causes crashes
+// impl Drop for DBIterator {
+//     fn drop(&mut self) {
+//         unsafe {
+//             leveldb_iter_destroy(self.iter);
+//         }
+//     }
+// }
 
 impl Iterator<(~[u8], ~[u8])> for DBIterator {
     fn next(&mut self) -> Option<(~[u8], ~[u8])> {
@@ -238,11 +248,20 @@ impl Iterator<(~[u8], ~[u8])> for DBIterator {
 }
 
 impl DBIterator {
-    fn prev(&mut self) {
-        
+    pub fn prev(&mut self) -> Option<(~[u8], ~[u8])> {
+        unsafe {
+            // TODO: this is buggy;
+            leveldb_iter_prev(self.iter);
+            if leveldb_iter_valid(self.iter as *leveldb_iterator_t) == 0u8 {
+                return None;
+            } else {
+                let pair = (self.key(), self.value());
+                return Some(pair);
+            }
+        }
     }
 
-    fn key(&self) -> ~[u8] {
+    pub fn key(&self) -> ~[u8] {
         unsafe {
             let mut c_key_len: size_t = 0;
             let c_key = leveldb_iter_key(self.iter as *leveldb_iterator_t,
@@ -251,7 +270,7 @@ impl DBIterator {
         }
     }
 
-    fn value(&self) -> ~[u8] {
+    pub fn value(&self) -> ~[u8] {
         unsafe {
             let mut c_val_len: size_t = 0;
             let c_val = leveldb_iter_value(self.iter as *leveldb_iterator_t,
@@ -260,7 +279,7 @@ impl DBIterator {
         }
     }
 
-    fn get_error(&self) -> Option<error> {
+    pub fn get_error(&self) -> Option<error> {
         unsafe {
             let mut c_err: *mut c_char = mut_null();
             leveldb_iter_get_error(self.iter as *leveldb_iterator_t,
@@ -273,9 +292,28 @@ impl DBIterator {
         }
     }
 
-    fn is_valid(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         unsafe {
             return leveldb_iter_valid(self.iter as *leveldb_iterator_t) != 0u8;
+        }
+    }
+
+    pub fn seek(&mut self, key: &[u8]) {
+        unsafe {
+            let (c_key, c_key_len) = to_c_str(key);
+            leveldb_iter_seek(self.iter, c_key, c_key_len);
+        }
+    }
+
+    pub fn seek_to_first(&mut self) {
+        unsafe {
+            leveldb_iter_seek_to_first(self.iter);
+        }
+    }
+
+    pub fn seek_to_last(&mut self) {
+        unsafe {
+            leveldb_iter_seek_to_last(self.iter);
         }
     }
 }
