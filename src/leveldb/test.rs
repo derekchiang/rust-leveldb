@@ -10,6 +10,9 @@ fn test_db_open() {
     let res = DB::open("db", [options::CREATE_IF_MISSING]);
     match res {
         Ok(db) => {
+            for (key, value) in db.iter([]) {
+                println!("key: {}, val: {}", from_utf8(key), from_utf8(value));
+            }
             let res = db.put("foo".as_bytes(), "bar".as_bytes(), []);
             match res {
                 Ok(_) => {},
