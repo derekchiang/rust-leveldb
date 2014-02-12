@@ -3,6 +3,7 @@
 #[comment = "A LevelDB binding in Rust."];
 #[license = "MIT"];
 #[crate_type = "lib"];
+#[allow(dead_code)];
 
 // #[deny(non_camel_case_types)];
 // #[deny(missing_doc)];
