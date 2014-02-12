@@ -11,11 +11,9 @@
 #[feature(macro_rules)];
 #[feature(globs)];
 
-use std::ptr::{mut_null, to_unsafe_ptr, to_mut_unsafe_ptr, is_null, is_not_null};
+use std::ptr::{mut_null, to_mut_unsafe_ptr, is_null, is_not_null};
 use std::str::raw::from_c_str;
 use std::libc::{c_char, size_t};
-use std::cast::transmute;
-use std::c_str::CString;
 use std::vec::raw::from_buf_raw;
 
 use self::cleveldb::*;
