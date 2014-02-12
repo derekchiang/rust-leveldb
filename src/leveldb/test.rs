@@ -21,7 +21,7 @@ fn test_db_open() {
             }
             let res = db.get("foo".as_bytes(), []);
             match res {
-                Ok(val) => println(from_utf8(val)),
+                Ok(val) => println!("{}", from_utf8(val)),
                 Err(err) => fail!(err)
             }
             db.close();

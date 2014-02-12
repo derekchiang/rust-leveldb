@@ -17,11 +17,11 @@ Take a look at `src/leveldb/test.rs`.
 
 To run the test, do:
 
-`rustpkg test leveldb`
+rustc -L . --test src/leveldb/test.rs
 
 ## Build
 
-`rustpkg build leveldb`
+`rustc src/leveldb/lib.rs`
 
 ## License
 

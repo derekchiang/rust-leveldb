@@ -1,12 +1,9 @@
-#[link(name = "leveldb",
-       uuid = "60bccde2-3c87-4630-9de3-3ce7c9e6328d",
-       url = "https://github.com/derekchiang/rust-leveldb")];
-
 #[crate_id = "leveldb"];
 
 #[comment = "A LevelDB binding in Rust."];
 #[license = "MIT"];
 #[crate_type = "lib"];
+#[allow(dead_code)];
 
 // #[deny(non_camel_case_types)];
 // #[deny(missing_doc)];
@@ -14,11 +11,9 @@
 #[feature(macro_rules)];
 #[feature(globs)];
 
-use std::ptr::{mut_null, to_unsafe_ptr, to_mut_unsafe_ptr, is_null, is_not_null};
+use std::ptr::{mut_null, to_mut_unsafe_ptr, is_null, is_not_null};
 use std::str::raw::from_c_str;
 use std::libc::{c_char, size_t};
-use std::cast::transmute;
-use std::c_str::CString;
 use std::vec::raw::from_buf_raw;
 
 use self::cleveldb::*;
@@ -77,11 +72,9 @@ fn to_c_write_options(options: &[WriteOption]) -> *leveldb_writeoptions_t {
     unsafe {
         let c_options = leveldb_writeoptions_create();
         for option in options.iter() {
-            for option in options.iter() {
-                match *option {
-                    SYNC => {
-                        leveldb_writeoptions_set_sync(c_options, 1u8);
-                    }
+            match *option {
+                SYNC => {
+                    leveldb_writeoptions_set_sync(c_options, 1u8);
                 }
             }
         }
