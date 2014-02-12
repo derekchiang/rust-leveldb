@@ -1,7 +1,3 @@
-#[link(name = "leveldb",
-       uuid = "60bccde2-3c87-4630-9de3-3ce7c9e6328d",
-       url = "https://github.com/derekchiang/rust-leveldb")];
-
 #[crate_id = "leveldb"];
 
 #[comment = "A LevelDB binding in Rust."];
