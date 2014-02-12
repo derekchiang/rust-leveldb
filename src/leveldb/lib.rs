@@ -72,11 +72,9 @@ fn to_c_write_options(options: &[WriteOption]) -> *leveldb_writeoptions_t {
     unsafe {
         let c_options = leveldb_writeoptions_create();
         for option in options.iter() {
-            for option in options.iter() {
-                match *option {
-                    SYNC => {
-                        leveldb_writeoptions_set_sync(c_options, 1u8);
-                    }
+            match *option {
+                SYNC => {
+                    leveldb_writeoptions_set_sync(c_options, 1u8);
                 }
             }
         }
