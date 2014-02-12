@@ -17,7 +17,7 @@ Take a look at `src/leveldb/test.rs`.
 
 To run the test, do:
 
-rustc -L . --test src/leveldb/test.rs
+`rustc -L . --test src/leveldb/test.rs`
 
 ## Build
 
