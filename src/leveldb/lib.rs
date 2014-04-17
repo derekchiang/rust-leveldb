@@ -1,20 +1,25 @@
-#[crate_id = "leveldb"];
+#![crate_id = "leveldb"]
 
-#[comment = "A LevelDB binding in Rust."];
-#[license = "MIT"];
-#[crate_type = "lib"];
-#[allow(dead_code)];
+#![comment = "A LevelDB binding in Rust."]
+#![license = "MIT"]
+#![crate_type = "lib"]
+#![allow(dead_code)]
 
 // #[deny(non_camel_case_types)];
 // #[deny(missing_doc)];
 
-#[feature(macro_rules)];
-#[feature(globs)];
 
-use std::ptr::{mut_null, to_mut_unsafe_ptr, is_null, is_not_null};
+//TODO: in from_raw_parts capacity argument should be sizeof * length
+
+
+#![feature(macro_rules)]
+#![feature(globs)]
+
+use std::ptr::{mut_null};
 use std::str::raw::from_c_str;
 use std::libc::{c_char, size_t};
-use std::vec::raw::from_buf_raw;
+
+use std::vec::Vec;
 
 use self::cleveldb::*;
 use self::options::*;
@@ -115,8 +120,8 @@ impl DB {
             let mut err: *mut c_char = mut_null();
             let c_db = leveldb_open(c_options as *leveldb_options_t,
                 name.to_c_str().unwrap(),
-                to_mut_unsafe_ptr(&mut err));
-            if is_null(c_db) {
+                &mut err);
+            if c_db.is_null() {
                 return Err(from_c_str(err as *c_char));
             } else {
                 return Ok(~DB{
@@ -140,8 +145,8 @@ impl DB {
             leveldb_put(self.db, to_c_write_options(options),
                 c_key, c_key_len,
                 c_val, c_val_len,
-                to_mut_unsafe_ptr(&mut c_err));
-            if is_not_null(c_err) {
+                (&mut c_err));
+            if c_err.is_not_null() {
                 return Err(from_c_str(c_err as *c_char));
             } else {
                 return Ok(());
@@ -149,19 +154,19 @@ impl DB {
         }
     }
 
-    pub fn get(&self, key: &[u8], options: &[ReadOption]) -> Result<~[u8], error> {
+    pub fn get(&self, key: &[u8], options: &[ReadOption]) -> Result<Vec<u8>, error> {
         unsafe {
             let mut c_err: *mut c_char = mut_null();
             let (c_key, c_key_len) = to_c_str(key);
             let mut c_value_len: size_t = 0;
             let c_value = leveldb_get(self.db, to_c_read_options(options),
                 c_key, c_key_len,
-                to_mut_unsafe_ptr(&mut c_value_len),
-                to_mut_unsafe_ptr(&mut c_err));
-            if is_not_null(c_err) {
+                &mut c_value_len,
+                &mut c_err);
+            if c_err.is_not_null() {
                 return Err(from_c_str(c_err as *c_char));
             } else {
-                return Ok(from_buf_raw(c_value as *u8, c_value_len as uint));
+                return Ok(Vec::from_raw_parts(c_value_len as uint, c_value_len as uint, c_value as *mut u8));
             }
         }
     }
@@ -172,8 +177,8 @@ impl DB {
             let (c_key, c_key_len) = to_c_str(key);
             leveldb_delete(self.db, to_c_write_options(options),
                 c_key, c_key_len,
-                to_mut_unsafe_ptr(&mut c_err));
-            if is_not_null(c_err) {
+                (&mut c_err));
+            if c_err.is_null() {
                 return Err(from_c_str(c_err as *c_char));
             } else {
                 return Ok(());
@@ -193,8 +198,8 @@ impl DB {
             }
             let mut c_err: *mut c_char = mut_null();
             leveldb_write(self.db, to_c_write_options(options),
-                c_write_batch, to_mut_unsafe_ptr(&mut c_err));
-            if is_not_null(c_err) {
+                c_write_batch, (&mut c_err));
+            if c_err.is_not_null() {
                 return Err(from_c_str(c_err as *c_char));
             } else {
                 return Ok(());
@@ -226,8 +231,8 @@ pub struct DBIterator {
 //     }
 // }
 
-impl Iterator<(~[u8], ~[u8])> for DBIterator {
-    fn next(&mut self) -> Option<(~[u8], ~[u8])> {
+impl Iterator<(Vec<u8>, Vec<u8>)> for DBIterator {
+    fn next(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
         unsafe {
             if leveldb_iter_valid(self.iter as *leveldb_iterator_t) == 0u8 {
                 return None;
@@ -241,7 +246,7 @@ impl Iterator<(~[u8], ~[u8])> for DBIterator {
 }
 
 impl DBIterator {
-    pub fn prev(&mut self) -> Option<(~[u8], ~[u8])> {
+    pub fn prev(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
         unsafe {
             // TODO: this is buggy;
             leveldb_iter_prev(self.iter);
@@ -254,21 +259,21 @@ impl DBIterator {
         }
     }
 
-    pub fn key(&self) -> ~[u8] {
+    pub fn key(&self) -> Vec<u8> {
         unsafe {
             let mut c_key_len: size_t = 0;
             let c_key = leveldb_iter_key(self.iter as *leveldb_iterator_t,
-                to_mut_unsafe_ptr(&mut c_key_len));
-            from_buf_raw(c_key as *u8, c_key_len as uint)
+                (&mut c_key_len));
+            Vec::from_raw_parts(c_key_len as uint, c_key_len as uint, c_key as *mut u8)
         }
     }
 
-    pub fn value(&self) -> ~[u8] {
+    pub fn value(&self) -> Vec<u8> {
         unsafe {
             let mut c_val_len: size_t = 0;
             let c_val = leveldb_iter_value(self.iter as *leveldb_iterator_t,
-                to_mut_unsafe_ptr(&mut c_val_len));
-            from_buf_raw(c_val as *u8, c_val_len as uint)
+                (&mut c_val_len));
+            Vec::from_raw_parts(c_val_len as uint, c_val_len as uint, c_val as *mut u8)
         }
     }
 
@@ -276,8 +281,8 @@ impl DBIterator {
         unsafe {
             let mut c_err: *mut c_char = mut_null();
             leveldb_iter_get_error(self.iter as *leveldb_iterator_t,
-                to_mut_unsafe_ptr(&mut c_err));
-            if is_not_null(c_err) {
+                (&mut c_err));
+            if c_err.is_not_null() {
                 return Some(from_c_str(c_err as *c_char));
             } else {
                 return None;
